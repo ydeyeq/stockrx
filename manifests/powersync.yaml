@@ -38,6 +38,9 @@ data:
     client_auth:
       supabase: true
       supabase_jwt_secret: !env PS_SUPABASE_JWT_SECRET
+    storage:
+      type: mongodb
+      uri: !env PS_MONGO_URI
 
 
 ---
@@ -98,6 +101,8 @@ spec:
               key: PS_SUPABASE_JWT_SECRET
         - name: PS_PORT
           value: "3000"
+        - name: PS_MONGO_URI
+          value: mongodb://mongodb:27017/powersync
         volumeMounts:
         - name: config-volume
           mountPath: /app/powersync.yaml
