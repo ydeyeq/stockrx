@@ -27,11 +27,7 @@ spec:
       volumes:
       - name: mongodb-data
         emptyDir: {}
-
-
 ---
-
-
 apiVersion: v1
 kind: Service
 metadata:
