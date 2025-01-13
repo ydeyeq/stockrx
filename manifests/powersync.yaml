@@ -1,8 +1,74 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: powersync
+  namespace: powersync
+  labels:
+    app: powersync
+spec:
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+  selector:
+    app: powersync
+  type: ClusterIP
+
+
+---
+
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: powersync-config
+  namespace: powersync
+data:
+  powersync.yaml: |
+    telemetry:
+      disable_telemetry_sharing: false
+    replication:
+      connections:
+        - type: postgresql
+          uri: !env PS_DATA_SOURCE_URI
+          sslmode: disable
+    port: !env PS_PORT
+    sync_rules:
+      path: sync_rules.yaml
+    client_auth:
+      supabase: true
+      supabase_jwt_secret: !env PS_SUPABASE_JWT_SECRET
+
+
+---
+
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: powersync-sync-rules
+  namespace: powersync
+data:
+  sync_rules.yaml: |
+    bucket_definitions:
+      user_lists:
+        # Separate bucket per To-Do list
+        parameters: select id as list_id from lists where owner_id = request.user_id()
+        data:
+          - select * from lists where id = bucket.list_id
+          - select * from todos where list_id = bucket.list_id
+
+
+---
+
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: powersync
   namespace: powersync
+  labels:
+    app: powersync
 spec:
   replicas: 1
   selector:
@@ -15,33 +81,37 @@ spec:
     spec:
       containers:
       - name: powersync
-        image: journeyapps/powersync-service
+        image: journeyapps/powersync-service:latest
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3000
-        # env:
-        # - name: DATABASE_URL
-        #   value: "postgres://user:password@db.host:5432/dbname"
-        # - name: JWT_SECRET
-        #   value: "your_jwt_secret"
-        # - name: POWERSYNC_PORT
-        #   value: "3000"
-
-
----
-
-
-apiVersion: v1
-kind: Service
-metadata:
-  name: powersync
-  namespace: powersync
-spec:
-  selector:
-    app: powersync
-  ports:
-  - protocol: TCP
-    port: 80
-    targetPort: 3000
+        env:
+        - name: PS_DATA_SOURCE_URI
+          valueFrom:
+            secretKeyRef:
+              name: powersync-secrets
+              key: PS_DATA_SOURCE_URI
+        - name: PS_SUPABASE_JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: powersync-secrets
+              key: PS_SUPABASE_JWT_SECRET
+        - name: PS_PORT
+          value: "3000"
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config/powersync.yaml
+          subPath: powersync.yaml
+        - name: sync-rules-volume
+          mountPath: /app/config/sync_rules.yaml
+          subPath: sync_rules.yaml
+      volumes:
+      - name: config-volume
+        configMap:
+          name: powersync-config
+      - name: sync-rules-volume
+        configMap:
+          name: powersync-sync-rules
 
 
 ---
@@ -66,3 +136,17 @@ spec:
             name: powersync
             port:
               number: 80
+
+
+---
+
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: powersync-secrets
+  namespace: powersync
+type: Opaque
+data:
+  PS_DATA_SOURCE_URI: cG9zdGdyZXNxbDovL3Bvc3RncmVzOkp2aFh4eFo5QmRYQGRiLnZsZ3JueWN2bHJzZ3NuZ2Fpc3R5LnN1cGFiYXNlLmNvOjU0MzIvcG9zdGdyZXM=
+  PS_SUPABASE_JWT_SECRET: VGlDaVpNZHp4OXU1c1RYOGhrNStOSGRub1l2V2RubG15QkRNQmFvTmNncGcyS2NlcHlPMmh5NlhWdUR6VmkrWG1BZEt2bHBGVFdVNk9mOFdqYjRod2c9PQ==
