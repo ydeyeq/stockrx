@@ -34,7 +34,7 @@ data:
           sslmode: disable
     port: !env PS_PORT
     sync_rules:
-      path: sync_rules.yaml
+      path: /app/sync_rules.yaml
     client_auth:
       supabase: true
       supabase_jwt_secret: !env PS_SUPABASE_JWT_SECRET
@@ -100,10 +100,10 @@ spec:
           value: "3000"
         volumeMounts:
         - name: config-volume
-          mountPath: /app/config/powersync.yaml
+          mountPath: /app/powersync.yaml
           subPath: powersync.yaml
         - name: sync-rules-volume
-          mountPath: /app/config/sync_rules.yaml
+          mountPath: /app/sync_rules.yaml
           subPath: sync_rules.yaml
       volumes:
       - name: config-volume
